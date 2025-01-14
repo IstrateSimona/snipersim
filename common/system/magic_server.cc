@@ -267,3 +267,17 @@ UInt64 MagicServer::getCoreState(UInt64 core_number)
    Core::State core_state = Sim()->getCoreManager()->getCoreFromID(core_number)->getState();
    return core_state;
 }
+
+
+UInt64 MagicServer::updateCoreStateHistory(UInt64 core_number)
+{
+   UInt32 num_cores = Sim()->getConfig()->getApplicationCores();
+   
+   if (core_number >= num_cores)
+      return UINT64_MAX;
+   Core::State core_state = Sim()->getCoreManager()->getCoreFromID(core_number)->getState();
+   Sim()->getCoreManager()->getCoreFromID(core_number)->updateHistory(core_state);
+   //std::cout<<core_number<<""<<core_state<<std::endl;
+   
+   return core_state;
+}

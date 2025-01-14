@@ -16,6 +16,8 @@
 #include "stats.h"
 #include "topology_info.h"
 #include "cheetah_manager.h"
+#include "magic_server.h"
+#include <cstdlib>
 
 #include <cstring>
 
@@ -102,6 +104,21 @@ Core::Core(SInt32 id)
          this, m_network, m_shmem_perf_model);
 
    m_performance_model = PerformanceModel::create(this);
+    for(int i=0; i<table_entries; i++)
+   {
+         for(int j=0; j< table_entries; j++)
+          {
+            
+            perceptronTable[i][j] =0;// (2.0 * std::rand() /RAND_MAX) -1.0;
+            
+            //std::cout<<perceptronTable[i][j]<<" ";
+           
+          }
+          
+          std::cout<<std::endl;
+   }
+
+   
 }
 
 Core::~Core()
@@ -195,7 +212,13 @@ Core::accessBranchPredictor(IntPtr eip, bool taken, bool indirect, IntPtr target
 {
    PerformanceModel *prfmdl = getPerformanceModel();
    BranchPredictor *bp = prfmdl->getBranchPredictor();
-
+   StatePredict(eip);
+   //std::cout<<m_core_id<<std::endl;
+   //for(int i=0; i<history_size; i++)
+   //{
+     //std::cout<<history[i]<<" ";
+  //}
+ // std::cout<<std::endl;
    if (bp)
    {
       bool prediction = bp->predict(indirect, eip, target);
@@ -208,6 +231,115 @@ Core::accessBranchPredictor(IntPtr eip, bool taken, bool indirect, IntPtr target
    }
 }
 
+double predict(UInt32 perceptronIndex, double perceptronTable[4][10], double history[], int size)
+{
+
+  UInt32 prediction = 0;
+
+  // Calculate prediction based on perceptron and global history.
+  // Start with the bias (first entry) and add/subtract weights based on history.
+  prediction += perceptronTable[perceptronIndex][0]; // Bias term.
+  
+  for (UInt32 i = 1; i < size + 1; i++) {
+  
+    // If history bit is 1, add the weight; if history bit is 0, subtract the weight.
+    if (history[i - 1] == 1) {
+      prediction += perceptronTable[perceptronIndex][i];   
+    } else {
+      prediction -= perceptronTable[perceptronIndex][i]; 
+    }
+    }   
+    // Return the prediction: 1 (RUN) if positive, 0 (IDLE) if negative.
+  return prediction >= 0 ? 1 : 0;
+  
+  
+}
+
+void train(UInt32 perceptronIndex, double history[], int size, double actual_state, double predicted_state, double perceptronTable[4][10])
+{
+
+ if (actual_state != predicted_state) {
+    // Update the bias first.
+    if (actual_state == 1) {
+      perceptronTable[perceptronIndex][0]++; // Increment bias if taken.
+    } else {
+      perceptronTable[perceptronIndex][0]--; // Decrement bias if not taken.
+    }
+
+    // Update the weights based on the global history.
+    for (UInt32 i = 1; i < size + 1; i++) {
+      if ((actual_state == 1 && history[i - 1] == 1) || (actual_state == 0 && history[i - 1] == 0)) {
+        perceptronTable[perceptronIndex][i]++; // Increment weight if history matches  direction.
+       
+      } else {
+        perceptronTable[perceptronIndex][i]--; // Decrement weight if history does not match direction.
+        
+      }
+    }
+  }
+  //double prediction = predict(weights, inputs, size);
+  //double error = actual_state - predicted_state;
+  //for(int i=0; i<size; i++)
+  //{
+     //weights[i] += learning_rate*error*inputs[i];
+  //}
+  
+}
+
+void
+Core :: updateHistory(int actualOutcome)
+{ 
+  
+  if(actualOutcome == 5)
+    actualOutcome = 0;//IDLE
+  else if(actualOutcome == 0)
+    actualOutcome = 1; //RUN
+  
+  history[history_size-1] = actualOutcome;
+}
+
+void adjust_frequency(UInt32 core_id, UInt64 actual_state)
+{
+std::cout<<"frecventa" <<std::endl;
+  UInt64 new_freq, actual_freq;
+  //If the current state is IDLE
+      if (actual_state == 0)
+        new_freq = 1000;
+      else
+        new_freq = 2660;
+       
+  actual_freq =  Sim()->getMagicServer()->getFrequency(core_id);
+  std::cout<<actual_freq <<std::endl;
+      //if (actual_freq != new_freq)
+        Sim()->getMagicServer()->setFrequency(core_id, new_freq);
+}
+
+int
+Core :: StatePredict(IntPtr ip)
+{
+    double actual_state;
+    int index = ip % table_entries;
+    double *perceptron = perceptronTable[index];    
+    
+    double prediction = predict(index, perceptronTable, history, history_size);   
+    actual_state=history[history_size-1];
+    train(index, history, history_size, actual_state,prediction, perceptronTable);
+    //std::cout<<"core "<<m_core_id<<" pred: "<<prediction <<" actual:" <<actual_state<<std::endl;
+    if (prediction != actual_state)
+          adjust_frequency(m_core_id,actual_state);
+    
+    UInt64 state = Sim()->getMagicServer()->getCoreState(m_core_id);    
+    char *x ;
+    if(prediction ==1)
+    {
+    x="running";
+    }
+    else
+    x="idle";
+    //std::cout<<"Core"<<m_core_id<<std::endl;// << "actual state " << state <<"predicted state "<<x<<std::endl;
+    
+    return (prediction!=actual_state);
+}
 MemoryResult
 makeMemoryResult(HitWhere::where_t _hit_where, SubsecondTime _latency)
 {

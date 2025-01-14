@@ -37,6 +37,7 @@ class MagicServer
 
       // ClBu @ULBS
       UInt64 getCoreState(UInt64 core_number);
+      UInt64 updateCoreStateHistory(UInt64 core_number);
 
    private:
       bool m_performance_enabled;

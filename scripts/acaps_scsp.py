@@ -109,36 +109,15 @@ class Scsp:
 
     for core in range(0, self.num_cores):
       actual_state = sim.dvfs.get_core_state(core)
-      predictor = self.acsp[core]
-
-      # Calculate average frequency for each core
-      actual_freq = float(sim.dvfs.get_frequency(core))
-      self.avg_core_frequency_cont[core] += 1.0
-      self.avg_core_frequency[core] = ((self.avg_core_frequency_cont[core] - 1) * self.avg_core_frequency[core] + actual_freq) / self.avg_core_frequency_cont[core]
       
-      # Reaction on the past prediction, to be read as was predictable.
-      if predictor.is_predictable():
-        # Get the old value
-        predicted_value = predictor.predict_next_value()
+      
+      
 
-        # Update predictor statistics
-        predictor.update_stats(predicted_value, actual_state)
+        
 
-        # In case of incorrect prediction the frequency has to be adjusted
-        if (predicted_value != actual_state):
-          self.adjust_frequency(core, actual_state)
+        
 
-        # stats = predictor.get_stats()
-        # data = [time, core, actual_state, predicted_value]
-        # self.append_stats(data)
-
-      # Regular predictor updates
-      predictor.update(actual_state)
-
-      # If enough confidence is present, predict the next state and adjust frequency.
-      if predictor.is_predictable():
-          predicted_state = predictor.predict_next_value()
-          self.adjust_frequency(core, predicted_state)
+     
 
   def build_dvfs_table(self, tech):
     # Build a table of (frequency, voltage) pairs.

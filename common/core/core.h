@@ -85,7 +85,14 @@ class Core
 
       // Query and update branch predictor, return true on mispredict
       bool accessBranchPredictor(IntPtr eip, bool taken, bool indirect, IntPtr target);
-
+    int StatePredict(IntPtr ip);
+    void updateHistory(int actualOutcome);
+     int table_entries = 4;
+      int history_size = 10;
+      double history[10] = {0};
+      double perceptronTable[4][10];
+      
+      double learning_rate = 0.1;
       MemoryResult readInstructionMemory(IntPtr address,
             UInt32 instruction_size);
 
